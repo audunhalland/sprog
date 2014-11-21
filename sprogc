@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+
+import sexpdata
+
+import llvm.core
+
+# test a simple scheme parser
+
+class Compiler:
+    module = llvm.core.Module.new('sprog')
+
+    def compile_value(self, s):
+        pass
+
+    def compile_fcall(self, s):
+        print('compile call!', str(s))
+
+    def compile_define(self, s):
+        if len(s) == 0:
+            raise Exception('needs an argument')
+
+        what = s[1]
+
+        if isinstance(what, list):
+            # define a function..
+            name = what[0]
+            lt = llvm.core.Type.int(32)
+            lfun = llvm.core.Function.new(self.module, llvm.core.Type.function(lt, (lt,)*3), name.value())
+            lblock = lfun.append_basic_block('entry')
+        else:
+            # variable or constant
+            pass
+
+    def compile_set(self, s):
+        print('compile set!', str(s))
+
+    def compile(self, s):
+        if isinstance(s, list) and len(s) > 0:
+            first = s[0]
+            if isinstance(first, sexpdata.Symbol):
+                val = first.value()
+                if val == 'define':
+                    return self.compile_define(s)
+                elif val == 'set!':
+                    return self.compile_set(s)
+                else:
+                    return self.compile_fcall(s)
+            else:
+                raise Exception("not a symbol")
+        else:
+            return self.compile_value(s)
+
+with open('ex/scheme.spr', 'r') as f:
+    hei = sexpdata.load(f)
+    print(hei)
+    c = Compiler()
+    c.compile(hei)
+    print(c.module)

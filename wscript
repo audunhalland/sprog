@@ -10,6 +10,8 @@ def configure(ctx):
 
     if sys.platform == 'darwin':
         ctx.env.INCLUDES_llvm = ['/usr/local/opt/llvm/include']
+        ctx.env.DEFINES_llvm = ['__STDC_LIMIT_MACROS=1',
+                                '__STDC_CONSTANT_MACROS=1']
 
 def build(ctx):
     ctx.program(source = 'src/sprogc.cpp',
