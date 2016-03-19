@@ -10,9 +10,21 @@ class Base:
             s += ' {' + debug.describe_tag(self.tag) + '}'
         return s
 
+    def eq(self, value):
+        return id(self) == id(value)
+
+    def eqv(self, value):
+        return self.eq(value)
+
+    def equal(self, value):
+        return self.eq(value)
+
 class Null(Base):
     def __init__(self):
         pass
+
+    def eq(self, value):
+        return value.__class__ is Null
 
     def sexpr(self):
         return '()'
@@ -24,6 +36,9 @@ class Pair(Base):
     def __init__(self, car, cdr):
         self.car = car
         self.cdr = cdr
+
+    def equal(self, value):
+        return value.__class__ is Pair and self.car.equal(value.car) and self.cdr.equal(value.cdr)
 
     def sexpr(self):
         i = self
@@ -48,6 +63,9 @@ class Symbol(Base):
     def __init__(self, symbol):
         self.symbol = symbol
 
+    def eq(self, value):
+        return value.__class__ is Symbol and self.symbol == value.symbol
+
     def sexpr(self):
         return self.symbol
 
@@ -58,12 +76,18 @@ class Void(Base):
     def sexpr(self):
         return '#void'
 
+    def eq(self, value):
+        return value.__class__ is Void
+
     def fields(self):
         return ()
 
 class Number(Base):
     def __init__(self, n):
         self.number = n
+
+    def equal(self, value):
+        return value.__class__ is Number and self.number == value.number
 
     def sexpr(self):
         return str(self.number)
@@ -74,6 +98,9 @@ class Number(Base):
 class String(Base):
     def __init__(self, string):
         self.string = string
+
+    def equal(self, value):
+        return value.__class__ is String and self.string == value.string
 
     def sexpr(self):
         return '"' + self.string + '"'

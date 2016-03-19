@@ -103,6 +103,10 @@ class test_eval(unittest.TestCase):
         result = self.eval_src(source, stdout_capture=output, **kw)
         self.assertEqual(output.getvalue(), display)
 
+    def assertValueEqual(self, source, value, **kw):
+        result = self.eval_src(source, **kw)
+        return result.equal(value)
+
     def test_map1(self):
         self.assertDisplayEqual("(display (map + '(1 2) '(1 2) '(1 2)))",
                                 '(3 6)', with_loops=True)
@@ -251,6 +255,13 @@ class test_eval(unittest.TestCase):
           (traverse (cdr c)))
         (traverse (list 1 (list 2 3)))""",
                                 '123')
+
+    def test_function_void(self):
+        self.assertValueEqual('((lambda ()))', cons.Void())
+
+    def test_function_error1(self):
+        with self.assertRaises(error.Error):
+            self.eval_src('((lambda (a . b)))')
 
 if __name__ == '__main__':
     unittest.main()

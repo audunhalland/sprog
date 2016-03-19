@@ -700,11 +700,13 @@ class ExpressionCompiler:
 
     def compile_call(self, func, args):
         self.add(instr.PushArgs(), debug_data=func)
+        nparams = 0
         for arg in cons_util.traverse_list(args):
             self.compile_expr(arg)
             self.add(instr.Arg(), debug_data=arg)
+            nparams += 1
         self.compile_expr(func)
-        self.add(instr.Call(), debug_data=func)
+        self.add(instr.Call(nparams), debug_data=func)
 
     def compile_call_cc(self, head, args):
         # no need for PushArgs

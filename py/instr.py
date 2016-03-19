@@ -85,7 +85,9 @@ class ArgPrepend(BaseInstr):
     'Prepend arg'
 
 class Call(BaseInstr):
-    pass
+    def __init__(self, nparams):
+        # Ignored for now. Arg instruction is the current argument counter
+        pass
 
 class CallCC(BaseInstr):
     pass

@@ -26,13 +26,14 @@ def define_basics(env):
         env.glob_const[name] = function.Generic(name, func, pure)
 
     def define_py_pred(name, func):
-        env.glob_const[name] = function.Generic(name, lambda x: cons.from_py(func(x)), pure=True)
+        env.glob_const[name] = function.Generic(name, lambda *a: cons.from_py(func(*a)), pure=True)
 
     define_py     ('car', lambda x: x.car)
     define_py     ('cdr', lambda x: x.cdr)
     define_py     ('cons', lambda x, y: cons.Pair(x, y))
     define_py     ('display', lambda x: call_void(display, x), pure=False)
     define_py_pred('eq?', lambda x, y: x is y)
+    define_py_pred('equal?', lambda x, y: x.equal(y))
     define_py     ('list', lambda *args: cons.from_py(args))
     define_py     ('newline', lambda: cons.String('\n'))
     define_py     ('not', lambda x: cons.from_py(cons.is_false(x)))

@@ -13,6 +13,9 @@ class ExecEnv:
     pop_local.append(instr.PopLocals())
 
     def __init__(self, ins):
+        # Results and arguments
+        self.values = []
+
         # Result register
         self.value = None
 

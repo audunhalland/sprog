@@ -108,6 +108,8 @@ class Function(Base, instr.BaseLocation):
     def call(self, env, args, inh_local=None):
         n = self.nargs
         if self.dotted:
+            if len(args) < n - 1:
+                env.exe.error('wrong number of arguments, should be at least ' + str(n - 1))
             args = args[:n-1] + [cons.from_py(args[n-1:])]
         else:
             env.assert_arglen(args, n)
@@ -120,6 +122,7 @@ class Function(Base, instr.BaseLocation):
         env.exe.push_local_autopop(l)
 
         env.exe.push_ins(self.ins)
+        env.exe.value = cons.Void()
 
 class Closure(Base):
     'Instantiated first class function, with inherited environment'
