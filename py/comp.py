@@ -48,7 +48,7 @@ def complete_value_defines(iminsref_list, dbg):
 
             is_constant = loc.is_constant()
             value = loc.value
-        elif isinstance(loc, PlaceholderLocation):
+        elif isinstance(loc, GlobalPlaceholderLocation):
             is_constant = False
             value = loc.value
 
@@ -68,13 +68,13 @@ def complete_value_defines(iminsref_list, dbg):
 class Error(error.Error):
     pass
 
-class PlaceholderLocation(instr.BaseLocation):
+class GlobalPlaceholderLocation(instr.BaseLocation):
     def __init__(self, sym, value):
         self.sym = sym
         self.value = value
 
     def __str__(self):
-        return 'Placeholder(' + self.sym.symbol + ', value=' + str(self.value) + ')'
+        return 'GlobalPlaceholder(' + self.sym.symbol + ', value=' + str(self.value) + ')'
 
     def sexpr(self):
         return '#' + str(self)
@@ -130,9 +130,10 @@ class IMInsRef:
 
     def get_stamped(self):
         if isinstance(self.i.loc, instr.EnvSkipLocation):
-            return self.i.loc.loc
+            loc = self.i.loc.loc
         else:
-            return self.i.loc
+            loc = self.i.loc
+        return loc if isinstance(loc, IMStampedLocal) else None
 
     def resolve_constant(self):
         stamped = self.get_stamped()
@@ -198,7 +199,7 @@ class StampResolver:
         for iml in iminsref_list:
             stamped = iml.get_stamped()
 
-            if isinstance(stamped, IMStampedLocal) and stamped.func_block is self.func_block:
+            if stamped and stamped.func_block is self.func_block:
                 if stamped.is_constant():
                     constant_imins.append(iml)
                 else:
@@ -325,9 +326,6 @@ class Block:
     FUNC = 2
     SCOPE = 3
 
-    # Local space optimization
-    USE_STAMPS = True
-
     def __init__(self, block_type, parent, dbg, tag=None, func=None):
         self.block_type = block_type
         self.parent = parent
@@ -371,7 +369,7 @@ class Block:
                 return True
             elif isinstance(c, IMStampedLocal):
                 return False
-            elif isinstance(c, PlaceholderLocation):
+            elif isinstance(c, GlobalPlaceholderLocation):
                 return False
             elif c:
                 # BUG: env skips
@@ -389,16 +387,13 @@ class Block:
             assert isinstance(ins, instr.Instructions)
 
             # Set up function
-            if Block.USE_STAMPS:
-                sr = StampResolver(self, self.dbg)
-                self.iminsref_list = sr.setup(self.iminsref_list)
-                move_ins = sr.reorder_locals()
-                if isinstance(move_ins, instr.Instructions):
-                    ins.prepend_ins(move_ins)
-                sr.resolve_locals()
-                self.func.size = sr.get_size()
-            else:
-                self.func.size = self.local_count
+            sr = StampResolver(self, self.dbg)
+            self.iminsref_list = sr.setup(self.iminsref_list)
+            move_ins = sr.reorder_locals()
+            if isinstance(move_ins, instr.Instructions):
+                ins.prepend_ins(move_ins)
+            sr.resolve_locals()
+            self.func.size = sr.get_size()
 
             self.func.ins = ins
 
@@ -448,7 +443,7 @@ class Block:
     def define_global(self, sym, value=None):
         self.check_define_sym(sym)
 
-        loc = PlaceholderLocation(sym, value)
+        loc = GlobalPlaceholderLocation(sym, value)
         self.defines[sym.symbol] = loc
         return loc
 
@@ -461,15 +456,9 @@ class Block:
                 break
             func_block = func_block.parent
 
-        if Block.USE_STAMPS:
-            func_block.local_stamp += 1
-            loc = IMStampedLocal(func_block.local_stamp, is_arg, func_block, value, sym)
-            func_block.stamped_locals.append(loc)
-        else:
-            loc = instr.LocalLocation(func_block.local_index)
-            func_block.local_index += 1
-            if func_block.local_index > func_block.local_count:
-                func_block.local_count = func_block.local_index
+        func_block.local_stamp += 1
+        loc = IMStampedLocal(func_block.local_stamp, is_arg, func_block, value, sym)
+        func_block.stamped_locals.append(loc)
 
         self.defines[sym.symbol] = loc
         return loc
@@ -516,8 +505,6 @@ class Block:
                 return (p_loc, p_level + 1)
             else:
                 return (None, None)
-        elif isinstance(loc, instr.LocalLocation):
-            return (loc, 0)
         elif isinstance(loc, IMStampedLocal):
             self.ref_stamped_local(sym, loc, closured)
             return (loc, 0)
@@ -537,8 +524,6 @@ class Block:
         assert_symbol(sym)
         loc, level = self.find_local_location_w_skip(sym)
         if loc:
-            is_stamped = isinstance(loc, IMStampedLocal)
-
             if level > 0:
                 loc = instr.EnvSkipLocation(loc, level)
 
@@ -546,12 +531,10 @@ class Block:
         else:
             loc = self.find_global_location(sym)
             if not loc:
-                loc = PlaceholderLocation(sym, None)
+                loc = GlobalPlaceholderLocation(sym, None)
             i = instr.Load(loc)
-            is_stamped = True
 
-        if is_stamped:
-            self.iminsref_list.append(IMInsRef(i, sym, self, ins, False))
+        self.iminsref_list.append(IMInsRef(i, sym, self, ins, False))
 
         return i
 
@@ -559,26 +542,22 @@ class Block:
         assert_symbol(sym)
         loc, level = self.find_local_location_w_skip(sym)
         if loc:
-            is_stamped = isinstance(loc, IMStampedLocal)
-
             if level > 0:
                 top_loc = instr.EnvSkipLocation(loc, level)
             else:
                 top_loc = loc
 
-            if is_stamped and overwritten:
+            if overwritten:
                 loc.overwritten = True
 
             i = instr.Store(top_loc)
         else:
             loc = self.find_global_location(sym)
             if not loc:
-                loc = PlaceholderLocation(sym, None)
+                loc = GlobalPlaceholderLocation(sym, None)
             i = instr.Store(loc)
-            is_stamped = True
 
-        if is_stamped:
-            self.iminsref_list.append(IMInsRef(i, sym, self, ins, not overwritten))
+        self.iminsref_list.append(IMInsRef(i, sym, self, ins, not overwritten))
 
         return i
 
