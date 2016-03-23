@@ -54,7 +54,7 @@ def complete_value_defines(iminsref_list, dbg):
 
         index = iminsref.in_ins.index(iminsref.i)
 
-        dbg.d('complete_value_define! is_constant = ', is_constant)
+        dbg.d('complete_value_define! loc=', loc)
 
         if is_constant:
             # REMOVE Store instruction.
@@ -126,7 +126,7 @@ class IMInsRef:
         self.is_define = is_define
 
     def __str__(self):
-        return 'IMInsRef[sym=' + self.sym.symbol + ', d=' + str(self.is_define) + ']'
+        return 'IMInsRef[i=' + str(self.i) + ', sym=' + self.sym.symbol + ', d=' + str(self.is_define) + ']'
 
     def get_stamped(self):
         if isinstance(self.i.loc, instr.EnvSkipLocation):
@@ -187,7 +187,7 @@ class StampResolver:
                 s.define_stamp -= len(const_indices)
                 s.last_use_stamp -= len(const_indices)
 
-        self.dbg.d('StampResolver.resolve_nonconstants()')
+        self.dbg.d('StampResolver.resolve_nonconstants()', [str(x) for x in sl])
         self.debug(sorted(sl, key=lambda stmp: stmp.define_stamp), 'define_stamp')
 
         for index in reversed(const_indices):
@@ -205,7 +205,7 @@ class StampResolver:
                     self.iminsref_list.append(iml)
             else:
                 ignored.append(iml)
-        self.dbg.d("setup: ignored iminsref=", [str(x) for x in ignored])
+        self.dbg.d('setup: ignored iminsref=', [str(x) for x in ignored])
         complete_value_defines(constant_imins, self.dbg.parent)
 
         for iml in constant_imins:
@@ -303,6 +303,8 @@ class StampResolver:
 
     def resolve_locals(self):
         new_locals = {}
+        # Fix load/store instructions before removing meta information
+        complete_value_defines(self.iminsref_list, self.dbg.parent)
         for iminsref in self.iminsref_list:
             to_resolve = iminsref.i
             if isinstance(to_resolve.loc, instr.EnvSkipLocation):

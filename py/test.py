@@ -15,6 +15,8 @@ import unittest
 
 dbg = debug.stream_tree()
 #dbg.comp.set_enabled(True)
+#dbg.comp.value_defines.set_enabled(True)
+#dbg.comp.stamp_resolver.set_enabled(True)
 
 class test_parse(unittest.TestCase):
     def parse(self, src):
@@ -129,6 +131,17 @@ class test_eval(unittest.TestCase):
               (list x y))))
         (display (((test 1) 2)))""",
                                 '(1 2)')
+
+    def test_closure3(self):
+        self.assertDisplayEqual("""
+        (define (counter)
+          (define c -1)
+          (lambda () (set! c (+ c 1))))
+        (define a (counter))
+        (display (a))
+        (display (a))
+        (display (a))""",
+                                '012')
 
     def test_and1(self):
         self.assertDisplayEqual("(display (and true))", "true")
